@@ -1,0 +1,58 @@
+# Render.com Blueprint — deploy gratuito (web service + PostgreSQL).
+# 1) Push questa cartella su un repo GitHub.
+# 2) Su render.com: New → Blueprint → seleziona il repo. Render legge questo file.
+# 3) Al primo deploy il DB viene migrato (migrate deploy) e popolato (SEED_ON_EMPTY).
+#
+# Nota: il piano free va in sleep dopo inattività. Per far girare lo scheduler
+# anche da spento, aggiungi un Cron gratuito (es. cron-job.org) che chiama
+# POST https://<tuo-dominio>/api/scheduler/tick con header x-cron-secret.
+
+databases:
+  - name: digitalfa-db
+    plan: free
+    databaseName: digitalfa
+    user: digitalfa
+
+services:
+  - type: web
+    name: digitalfa
+    runtime: node
+    plan: free
+    buildCommand: cd client && npm install && npm run build && cd ../server && npm install
+    startCommand: cd server && npm run start:prod
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: digitalfa-db
+          property: connectionString
+      - key: NODE_VERSION
+        value: "22"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CRON_SECRET
+        generateValue: true
+      - key: SEED_ON_EMPTY
+        value: "1"
+      - key: FRONTEND_URL
+        sync: false            # imposta l'URL pubblico dopo il primo deploy
+      # --- opzionali: incolla le chiavi per attivare le funzioni "reali" ---
+      # - key: STRIPE_SECRET_KEY        { sync: false }
+      # - key: STRIPE_WEBHOOK_SECRET    { sync: false }
+      # - key: LINKEDIN_CLIENT_ID       { sync: false }
+      # - key: LINKEDIN_CLIENT_SECRET   { sync: false }
+      # - key: LINKEDIN_REDIRECT_URI    { sync: false }
+      # - key: LLM_API_KEY              { sync: false }   # OpenAI-compatibile
+      # - key: LLM_MODEL                { value: "gpt-4o-mini" }
+      # oppure: ANTHROPIC_API_KEY + LLM_MODEL=claude-3-5-haiku-latest
+
+  # (Opzionale) worker dedicato per lo scheduler — richiede piano a pagamento.
+  # - type: worker
+  #   name: digitalfa-worker
+  #   runtime: node
+  #   buildCommand: cd server && npm install
+  #   startCommand: cd server && npm run worker
+  #   envVars:
+  #     - key: DATABASE_URL
+  #       fromDatabase: { name: digitalfa-db, property: connectionString }

@@ -1,0 +1,316 @@
+// digitalfa — Prisma schema (PostgreSQL)
+generator client {
+  provider = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Company {
+  id         String   @id
+  name       String
+  sector     String   @default("—")
+  city       String   @default("—")
+  logo       String   @default("")
+  plan       String   @default("Starter")
+  seatsTotal Int      @default(0)
+  activeSince String  @default("")
+  careersUrl String   @default("")
+  users      User[]
+  jobs       Job[]
+  sources    Source[]
+}
+
+model Setting {
+  id               String  @id @default("singleton")
+  schedulerEnabled Boolean @default(true)
+  checkIntervalSec Int     @default(60)
+  lastTickAt       String?
+  lastDailyScanDate String?
+  lastDailyScanInfo String?
+  scanHistory      Json?
+  config           Json?
+}
+
+model User {
+  id          String   @id
+  role        String
+  name        String
+  email       String   @unique
+  password    String   @default("")
+  authProvider String  @default("password")
+  linkedinId  String?  @unique
+  title       String   @default("")
+  avatar      String   @default("")
+  bio         String?
+  specialties String[] @default([])
+  companyId   String?
+  company     Company? @relation(fields: [companyId], references: [id])
+  coachId     String?
+  coach       User?    @relation("CoachCandidates", fields: [coachId], references: [id])
+  candidates  User[]   @relation("CoachCandidates")
+  programId   String?
+  location    String?
+  seniority   String?
+  industry    String?
+  headline    String?
+  skills      String[] @default([])
+  status      String?
+  blockedUntil String?
+  username    String?
+  permissions String[] @default([])
+  resetToken  String?
+  resetExpires String?
+  enrolledAt  String?
+  placedAt    String?
+  phone       String?
+  summary     String?
+  cvFileName  String?
+  cvText      String?
+  cvUploadedAt String?
+  onboarded        Boolean  @default(false)
+  desiredTitles    String[] @default([])
+  experienceLevel  String?
+  minSalary        Int?
+  sectors          String[] @default([])
+  jobTypes         String[] @default([])
+  preferredLocations String[] @default([])
+  workModes        String[] @default([])
+  companyTypes     String[] @default([])
+  acceptedTermsAt  String?
+  linkedinUrl      String?
+  lastOffersVisitAt String?
+  referralCode     String?  @unique
+  referredBy       String?
+  progress    Progress[]
+  applications Application[] @relation("CandidateApplications")
+  sessionsAsCandidate Session[] @relation("CandidateSessions")
+  sessionsAsCoach     Session[] @relation("CoachSessions")
+}
+
+model Program {
+  id            String   @id
+  name          String
+  durationMonths Int     @default(0)
+  description   String   @default("")
+  modules       String[] @default([])
+}
+
+model Progress {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+  key    String
+  status String @default("todo")
+  @@unique([userId, key])
+}
+
+model Plan {
+  id       String   @id
+  audience String
+  name     String
+  price    Int?
+  interval String   @default("month")
+  priceId  String?
+  seats    Int?
+  popular  Boolean  @default(false)
+  contact  Boolean  @default(false)
+  tagline  String   @default("")
+  features String[] @default([])
+  priceLabel  String?
+  billingNote String?
+}
+
+model Subscription {
+  id                   String   @id @default(uuid())
+  ownerType            String
+  ownerId              String
+  planId               String
+  status               String   @default("active")
+  currentPeriodEnd     String   @default("")
+  cancelAtPeriodEnd    Boolean  @default(false)
+  provider             String   @default("simulated")
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  cardBrand            String?
+  cardLast4            String?
+  cardExpMonth         Int?
+  cardExpYear          Int?
+  startedAt            String   @default("")
+  voucherCode          String?
+  discountPercent      Int?
+  freeUntil            String?
+  @@unique([ownerType, ownerId])
+}
+
+model Source {
+  id            String   @id
+  type          String   @default("portal")
+  name          String
+  url           String
+  companyId     String?
+  company       Company? @relation(fields: [companyId], references: [id])
+  status        String   @default("active")
+  createdAt     String   @default("")
+  frequencyHours Int     @default(24)
+  lastScanAt    String?
+  nextScanAt    String?
+  lastScanFound Int      @default(0)
+  region        String   @default("Italia")
+  connector     String   @default("simulated")
+  autoScan      Boolean  @default(true)
+  apiConfig     Json?
+  jobs          Job[]
+  scanLogs      ScanLog[]
+}
+
+model Job {
+  id           String   @id
+  title        String
+  company      String
+  location     String   @default("—")
+  type         String   @default("Full-time")
+  remote       String   @default("Ibrido")
+  salary       String   @default("—")
+  industry     String   @default("—")
+  seniority    String   @default("Mid")
+  postedAt     String   @default("")
+  tags         String[] @default([])
+  description  String   @default("")
+  origin       String   @default("scan")
+  sourceId     String?
+  source       Source?  @relation(fields: [sourceId], references: [id])
+  companyId    String?
+  companyRef   Company? @relation(fields: [companyId], references: [id])
+  status       String   @default("active")
+  firstSeenAt  String   @default("")
+  lastSeenAt   String   @default("")
+  deactivatedAt String?
+  externalId   String?
+  dedupKey     String?
+  companyType  String?
+  url          String?
+  ownerUserId  String?
+  applications Application[]
+  @@index([dedupKey])
+}
+
+model Voucher {
+  id             String  @id
+  code           String  @unique
+  percent        Int     @default(100)
+  durationDays   Int     @default(30)
+  active         Boolean @default(true)
+  note           String?
+  maxRedemptions Int?
+  redeemedCount  Int     @default(0)
+  createdAt      String  @default("")
+}
+
+model Application {
+  id             String @id
+  candidateId    String
+  candidate      User   @relation("CandidateApplications", fields: [candidateId], references: [id])
+  jobId          String
+  job            Job    @relation(fields: [jobId], references: [id])
+  stage          String @default("applied")
+  appliedAt      String @default("")
+  updatedAt      String @default("")
+  coverLetter    String?
+  contactMessage String?
+}
+
+model Session {
+  id          String  @id
+  candidateId String
+  candidate   User    @relation("CandidateSessions", fields: [candidateId], references: [id])
+  coachId     String
+  coach       User    @relation("CoachSessions", fields: [coachId], references: [id])
+  date        String
+  topic       String  @default("")
+  status      String  @default("scheduled")
+  mode        String  @default("Video")
+  notes       String?
+}
+
+model Resource {
+  id       String @id
+  title    String
+  type     String
+  duration String
+  category String
+  level    String
+}
+
+model MatchPref {
+  id        String @id @default(uuid())
+  userId    String @unique
+  weights   Json
+  updatedAt String @default("")
+}
+
+model MatchFeedback {
+  id        String @id @default(uuid())
+  userId    String
+  jobId     String
+  verdict   String
+  note      String?
+  createdAt String @default("")
+}
+
+model ScanLog {
+  id          String  @id
+  sourceId    String?
+  source      Source? @relation(fields: [sourceId], references: [id])
+  label       String?
+  runAt       String
+  found       Int     @default(0)
+  added       Int     @default(0)
+  deactivated Int     @default(0)
+  status      String  @default("ok")
+}
+
+model CoachApplication {
+  id        String  @id
+  name      String
+  email     String
+  phone     String?
+  linkedin  String?
+  message   String?
+  userId    String?
+  createdAt String  @default("")
+  emailed   Boolean @default(false)
+}
+
+model CommLog {
+  id        String @id
+  userId    String
+  commKey   String
+  ref       String?
+  sentAt    String @default("")
+  @@index([userId, commKey])
+}
+
+model AnswerBank {
+  id        String @id
+  userId    String
+  question  String
+  answer    String @default("")
+  createdAt String @default("")
+  updatedAt String @default("")
+  @@index([userId])
+}
+
+model Referral {
+  id             String  @id
+  referrerId     String
+  code           String
+  email          String?
+  referredUserId String?
+  status         String  @default("invited")
+  invitedAt      String  @default("")
+  rewardedAt     String?
+}
